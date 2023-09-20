@@ -22,7 +22,7 @@ saved_window_info : Saved_Window_Info;
 
 main :: () {
     window := create_window(width, height, "JaiGL");
-    set_render_target(window);
+    Simp.set_render_target(window);
 
     shaderID := link_shaders(VERTEX_SHADER, FRAGMENT_SHADER);
 
@@ -44,7 +44,7 @@ main :: () {
 
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
-        swap_buffers(window);
+        Simp.swap_buffers(window);
     }
 }
 
@@ -167,5 +167,6 @@ check_link_errors :: (program : GLuint) -> bool, info_log : string {
 #import "Input";
 #import "Basic";
 #import "Math";
-#import "Simp";
 #import "GL";
+
+Simp :: #import "Simp";

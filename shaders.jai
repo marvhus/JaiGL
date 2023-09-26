@@ -113,7 +113,7 @@ parse_combined_shaders :: (combined_shaders: string) -> (string, string) {
 		if is_space(line) continue; // ignore blank lines
 		if current == { // NOTE(martin): should I care about not repeating myself?
 			case .VERTEX;
-			print_to_builder(*vert_builder, "%\line", n);
+			print_to_builder(*vert_builder, "%\n", line);
 			case .FRAGMENT;
 			print_to_builder(*frag_builder, "%\n", line);
 		}

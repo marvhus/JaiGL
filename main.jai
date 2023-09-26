@@ -1,19 +1,3 @@
-VERTEX_SHADER :: #string END
-#version 330
-layout (location = 0) in vec3 pos;
-void main() {
-    gl_Position  = vec4(pos.x, pos.y, pos.z, 1.0);
-}
-END
-
-FRAGMENT_SHADER :: #string END
-#version 330
-out vec4 color;
-void main() {
-    color = vec4(1.0, 0.5, 0.2, 1.0);
-}
-END
-
 width  := 1280;
 height := 720;
 isRunning := true;
@@ -24,7 +8,7 @@ main :: () {
     window := create_window(width, height, "JaiGL");
     Simp.set_render_target(window);
 
-    shaderID := link_shaders(VERTEX_SHADER, FRAGMENT_SHADER);
+    shaderID := link_shaders("default.glsl");
 
     vao := vao_from_verticies(.[
         .{-0.5, -0.5, 0.0},
@@ -96,7 +80,49 @@ vao_from_verticies :: (verticies: [3]Vector3) -> u32 {
     return vao;
 }
 
-link_shaders :: (vert_source: string, frag_source: string) -> GLuint {
+parse_combined_shaders :: (combined_shaders: string) -> (string, string) {
+	vert_builder: String_Builder;
+	frag_builder: String_Builder;
+
+	current: enum {
+		VERTEX;
+		FRAGMENT;
+	} = .VERTEX;
+
+	is_space :: (s: string) -> bool {
+		for 0..s.count-1 if !is_space(s[it]) return false;
+		return true;
+	}
+	
+	// TODO(martin) maybe add support for \r\n
+	// for example split by \r\n then split each of the lines by \n and flatening it.
+	// ... or is that overcomplicating it?
+	for line: split(combined_shaders, "\n") {
+		if begins_with(line, "// #vertex") {
+			current = .VERTEX;
+			continue;
+		}
+		if begins_with(line, "// #fragment") {
+			current = .FRAGMENT;
+			continue;
+		}
+		if is_space(line) continue; // ignore blank lines
+		if current == { // NOTE(martin): should I care about not repeating myself?
+			case .VERTEX;
+			print_to_builder(*vert_builder, "%\n", line);
+			case .FRAGMENT;
+			print_to_builder(*frag_builder, "%\n", line);
+		}
+	}
+
+	return builder_to_string(*vert_builder), builder_to_string(*frag_builder);
+}
+
+link_shaders :: (path_to_sources: string) -> GLuint {
+	combined, success := read_entire_file(path_to_sources);
+	assert(success, "Not a valid shader file path");
+	vert_source, frag_source := parse_combined_shaders(combined);
+	
     vert_shader := compile_shader(vert_source, .Vertex);
     frag_shader := compile_shader(frag_source, .Fragment);
 
@@ -104,9 +130,10 @@ link_shaders :: (vert_source: string, frag_source: string) -> GLuint {
     glAttachShader(shaderID, vert_shader);
     glAttachShader(shaderID, frag_shader);
     glLinkProgram(shaderID);
-    success, infoLog := check_link_errors(shaderID);
-    if !success then log_error("Could not link shaders: %\n", infoLog);
-
+	{
+		success, infoLog := check_link_errors(shaderID);
+		if !success then log_error("Could not link shaders: %\n", infoLog);
+	}
     glDeleteShader(vert_shader);
     glDeleteShader(frag_shader);
 
@@ -167,6 +194,7 @@ check_link_errors :: (program : GLuint) -> bool, info_log : string {
 #import "Input";
 #import "Basic";
 #import "Math";
+#import "File";
 #import "GL";
 
 Simp :: #import "Simp";

@@ -1,37 +1,45 @@
 /* =========================================================================
  * This is main.jai
  * Copyright (C) 2023  marvhus
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * ========================================================================== */
 
+DEBUG_MEMORY :: false;
+
 width  := 1280;
 height := 720;
+
 isRunning := true;
+
 is_fullscreened := false;
 saved_window_info : Saved_Window_Info;
 
 main :: () {
+    #if DEBUG_MEMORY {
+        defer report_memory_leaks();
+    }
+
     window := create_window(width, height, "JaiGL");
     Simp.set_render_target(window);
 
     shaderID := link_shaders("default.glsl");
 
     vao := vao_from_verticies(.[
-        .{-0.5, -0.5, 0.0},
-        .{ 0.5, -0.5, 0.0},
-        .{ 0.0,  0.5, 0.0},
+        .{-0.5,-0.5, 0.0},
+        .{ 0.5,-0.5, 0.0},
+        .{ 0.0, 0.5, 0.0},
     ]);
 
     while isRunning {
@@ -47,17 +55,23 @@ main :: () {
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
         Simp.swap_buffers(window);
+
+        reset_temporary_storage();
     }
 }
 
-handle_events :: (window: $T)  {
+handle_events :: (window : Window_Type)  {
     toggled_fullscreen := false;
 
     update_window_events();
-    // Keyboard events
-    for event: events_this_frame {
+    // Loop over all the window events
+    for event : events_this_frame {
+
+        // Various window events
         if event.type == {
-            case .QUIT; isRunning = false;
+            case .QUIT;
+            isRunning = false;
+
             case .KEYBOARD;
             if event.key_pressed if event.key_code == {
                 case .ESCAPE; isRunning = false;
@@ -74,14 +88,15 @@ handle_events :: (window: $T)  {
             }
         }
     }
-    // Resize events
+
+  Keyboard  // Resize events
     for get_window_resizes() {
         width = it.width;
         height = it.height;
     }
 }
 
-vao_from_verticies :: (verticies: [3]Vector3) -> u32 {
+vao_from_verticies :: (verticies : [3]Vector3) -> u32 {
     vao, vbo: u32;
     glGenVertexArrays(1, *vao);
     glBindVertexArray(vao);
@@ -103,9 +118,15 @@ vao_from_verticies :: (verticies: [3]Vector3) -> u32 {
 #import "Window_Creation";
 #import "String";
 #import "Input";
-#import "Basic";
 #import "Math";
 #import "File";
 #import "GL";
 
+#if DEBUG_MEMORY {
+    #import "Basic"()(MEMORY_DEBUGGER=true);
+} else {
+    #import "Basic";
+}
+
+// for Simp.set_render_target() and Simp.swap_buffers()
 Simp :: #import "Simp";

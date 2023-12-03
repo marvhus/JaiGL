@@ -17,10 +17,10 @@
  * ========================================================================== */
 
 link_shaders :: (path_to_sources: string) -> GLuint {
-	combined, success := read_entire_file(path_to_sources);
-	assert(success, "Not a valid shader file path");
-	vert_source, frag_source := parse_combined_shaders(combined);
-	
+    combined, success := read_entire_file(path_to_sources);
+    assert(success, "Not a valid shader file path");
+    vert_source, frag_source := parse_combined_shaders(combined);
+
     vert_shader := compile_shader(vert_source, .Vertex);
     frag_shader := compile_shader(frag_source, .Fragment);
 
@@ -28,10 +28,10 @@ link_shaders :: (path_to_sources: string) -> GLuint {
     glAttachShader(shaderID, vert_shader);
     glAttachShader(shaderID, frag_shader);
     glLinkProgram(shaderID);
-	{
-		success, infoLog := check_link_errors(shaderID);
-		if !success then log_error("Could not link shaders: %\n", infoLog);
-	}
+    {
+        success, infoLog := check_link_errors(shaderID);
+        if !success then log_error("Could not link shaders: %\n", infoLog);
+    }
     glDeleteShader(vert_shader);
     glDeleteShader(frag_shader);
 
@@ -59,8 +59,9 @@ check_compile_errors :: (shader : GLuint) -> bool, info_log : string {
     if !success {
         info_len : s32;
         glGetShaderiv (shader, GL_INFO_LOG_LENGTH, *info_len);
-        info_data := cast (*u8) alloc (info_len, temp);
+        info_data := cast (*u8) alloc (info_len, temp); // temporary storage reset in main loop.
         glGetShaderInfoLog (shader, xx info_len, xx *info_len, info_data);
+
         result : string;
         result.data = info_data;
         result.count = info_len;
@@ -90,39 +91,42 @@ check_link_errors :: (program : GLuint) -> bool, info_log : string {
 }
 
 parse_combined_shaders :: (combined_shaders: string) -> (string, string) {
-	vert_builder: String_Builder;
-	frag_builder: String_Builder;
+    vert_builder: String_Builder;
+    frag_builder: String_Builder;
 
-	current: enum {
-		VERTEX;
-		FRAGMENT;
-	} = .VERTEX;
-	
-	// TODO(martin) maybe add support for \r\n
-	// for example split by \r\n then split each of the lines by \n and flatening it.
-	// ... or is that overcomplicating it?
-	for line: split(combined_shaders, "\n") {
-		if begins_with(line, "// #vertex") {
-			current = .VERTEX;
-			continue;
-		}
-		if begins_with(line, "// #fragment") {
-			current = .FRAGMENT;
-			continue;
-		}
-		if is_space(line) continue; // ignore blank lines
-		if current == { // NOTE(martin): should I care about not repeating myself?
-			case .VERTEX;
-			print_to_builder(*vert_builder, "%\n", line);
-			case .FRAGMENT;
-			print_to_builder(*frag_builder, "%\n", line);
-		}
-	}
+    current := *vert_builder;
 
-	return builder_to_string(*vert_builder), builder_to_string(*frag_builder);
+    for line: split_newlines(combined_shaders) {
+        // ignore blank lines
+        if is_space(line) continue;
+
+        // change wich builder is being used
+        if begins_with(line, "// #vertex") {
+            current = *vert_builder;
+            continue;
+        }
+        if begins_with(line, "// #fragment") {
+            current = *frag_builder;
+            continue;
+        }
+
+        print_to_builder(current, "%\n", line);
+    }
+
+    return builder_to_string(*vert_builder), builder_to_string(*frag_builder);
 }
 
 is_space :: (s: string) -> bool {
-	for 0..s.count-1 if !is_space(s[it]) return false;
-	return true;
+    for 0..s.count-1 if !is_space(s[it]) return false;
+    return true;
+}
+
+split_newlines :: (text: string) -> lines: []string {
+    lines: [..]string;
+    for win_line: split(text, "\r\n") {
+        for nix_line: split(win_line, "\n") {
+            array_add(*lines, nix_line);
+        }
+    }
+    return lines;
 }
